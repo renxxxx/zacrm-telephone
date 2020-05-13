@@ -33,67 +33,82 @@ public class ZacrmTelephoneApplication {
 
     @PostMapping("/send")
     public JSONObject send(@RequestParam(value = "message") String message) {
-        Config.webSocketClient.send(message);
-        JSONObject result = new JSONObject(true);
-        JSONObject resultData = new JSONObject(true);
-        result.put("code",0);
-        result.put("codeMsg",null);
-        result.put("data",resultData);
-        String resultString = result.toJSONString();
-        logger.info("resultString : "+resultString);
-
-        return result;
+        try {
+            if(message != null && !message.isEmpty())
+                Config.webSocketClient.send(message);
+            JSONObject result = new JSONObject(true);
+            JSONObject resultData = new JSONObject(true);
+            result.put("code", 0);
+            result.put("codeMsg", null);
+            result.put("data", resultData);
+            String resultString = result.toJSONString();
+            logger.info("resultString : " + resultString);
+            return result;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return new JSONObject(true);
     }
 
     @GetMapping("/receive")
     public JSONObject receive() {
-        JSONObject result = new JSONObject(true);
-        JSONObject  resultData= new JSONObject(true);
-        resultData.put("value", Config.webSocketClientLastReceive);
-        result.put("code",0);
-        result.put("codeMsg",null);
-        result.put("data",resultData);
-        String resultString = result.toJSONString();
-        logger.info("resultString : "+resultString);
+        try {
+            JSONObject result = new JSONObject(true);
+            JSONObject resultData = new JSONObject(true);
+            resultData.put("value", Config.webSocketClientLastReceive);
+            result.put("code", 0);
+            result.put("codeMsg", null);
+            result.put("data", resultData);
+            String resultString = result.toJSONString();
+            logger.info("resultString : " + resultString);
 
-        return result;
+            Config.webSocketClientLastReceive = null;
+            return result;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return new JSONObject(true);
     }
 
     public void initWebSocket() throws URISyntaxException, InterruptedException {
         logger.info("in");
-        Config.webSocketClient = new WebSocketClient(new URI("ws://localhost:1080?sid=789&pid=84529FA7-7195-4541-AA38-B22003CCFF4D&flag=1"),new Draft_6455()) {
+        String uri = "ws://localhost:1080?sid=" + ((int) ((1 + Math.random()) * 10000)) + "&pid=84529FA7-7195-4541-AA38-B22003CCFF4D&flag=1";
+        logger.info("uri " + uri);
 
-                @Override
-                public void onOpen(ServerHandshake serverHandshake) {
-                    logger.info("连接成功");
+        Config.webSocketClient = new WebSocketClient(new URI(uri), new Draft_6455()) {
 
+            @Override
+            public void onOpen(ServerHandshake serverHandshake) {
+                logger.info("连接成功");
+
+            }
+
+            @Override
+            public void onMessage(String msg) {
+                logger.info("收到消息 : " + msg);
+                if (msg != null && !msg.contains("HP_MsgEvent"))
+                    Config.webSocketClientLastReceive = msg;
+                if (msg.equals("over")) {
+                    this.close();
                 }
+            }
 
-                @Override
-                public void onMessage(String msg) {
-                    logger.info("收到消息 : "+msg);
-                    Config.webSocketClientLastReceive=msg;
-                    if(msg.equals("over")){
-                        this.close();
-                    }
-                }
+            @Override
+            public void onClose(int i, String s, boolean b) {
+                logger.info("链接已关闭");
+            }
 
-                @Override
-                public void onClose(int i, String s, boolean b) {
-                    logger.info("链接已关闭");
-                }
-
-                @Override
-                public void onError(Exception e){
-                    e.printStackTrace();
-                    logger.info("发生错误已关闭");
-                }
-            };
+            @Override
+            public void onError(Exception e) {
+                e.printStackTrace();
+                logger.info("发生错误已关闭");
+            }
+        };
 
 
         Config.webSocketClient.connect();
         logger.info(Config.webSocketClient.getDraft());
-        while(!Config.webSocketClient.getReadyState().equals(ReadyState.OPEN)){
+        while (!Config.webSocketClient.getReadyState().equals(ReadyState.OPEN)) {
             logger.info("正在连接...");
             Thread.sleep(1000);
         }
