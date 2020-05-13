@@ -10,6 +10,7 @@ import org.java_websocket.handshake.ServerHandshake;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -30,8 +31,8 @@ public class ZacrmTelephoneApplication {
         initWebSocket();
     }
 
-    @GetMapping("/send")
-    public String send(@RequestParam(value = "message") String message) {
+    @PostMapping("/send")
+    public JSONObject send(@RequestParam(value = "message") String message) {
         Config.webSocketClient.send(message);
         JSONObject result = new JSONObject(true);
         JSONObject resultData = new JSONObject(true);
@@ -41,13 +42,26 @@ public class ZacrmTelephoneApplication {
         String resultString = result.toJSONString();
         logger.info("resultString : "+resultString);
 
-        return resultString;
+        return result;
     }
 
+    @GetMapping("/receive")
+    public JSONObject receive() {
+        JSONObject result = new JSONObject(true);
+        JSONObject  resultData= new JSONObject(true);
+        resultData.put("value", Config.webSocketClientLastReceive);
+        result.put("code",0);
+        result.put("codeMsg",null);
+        result.put("data",resultData);
+        String resultString = result.toJSONString();
+        logger.info("resultString : "+resultString);
+
+        return result;
+    }
 
     public void initWebSocket() throws URISyntaxException, InterruptedException {
         logger.info("in");
-        Config.webSocketClient = new WebSocketClient(new URI("ws://localhost?sid=789&pid=84529FA7-7195-4541-AA38-B22003CCFF4D&flag=1"),new Draft_6455()) {
+        Config.webSocketClient = new WebSocketClient(new URI("ws://localhost:1080?sid=789&pid=84529FA7-7195-4541-AA38-B22003CCFF4D&flag=1"),new Draft_6455()) {
 
                 @Override
                 public void onOpen(ServerHandshake serverHandshake) {
@@ -58,6 +72,7 @@ public class ZacrmTelephoneApplication {
                 @Override
                 public void onMessage(String msg) {
                     logger.info("收到消息 : "+msg);
+                    Config.webSocketClientLastReceive=msg;
                     if(msg.equals("over")){
                         this.close();
                     }
